@@ -3,6 +3,26 @@ import os
 import re
 
 
+def clean_text(value):
+    if value is None:
+        return None
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def extract_text_after_label(selector, label):
+    node = selector.css(f"div.list-{label}")
+    if not node:
+        return None
+    text_parts = []
+    for text in node.css("::text").getall():
+        cleaned = clean_text(text)
+        if cleaned:
+            text_parts.append(cleaned)
+    if text_parts and text_parts[0].lower().rstrip(":") == label:
+        text_parts = text_parts[1:]
+    return clean_text(" ".join(text_parts))
+
+
 class ArxivSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,12 +66,21 @@ class ArxivSpider(scrapy.Spider):
             paper_dd = paper.xpath("following-sibling::dd[1]")
             if not paper_dd:
                 continue
+
+            title = extract_text_after_label(paper_dd, "title")
+            authors = []
+            for author in paper_dd.css(".list-authors a::text").getall():
+                cleaned_author = clean_text(author)
+                if cleaned_author:
+                    authors.append(cleaned_author)
+            summary = extract_text_after_label(paper_dd, "abstract")
+            comment = extract_text_after_label(paper_dd, "comments")
             
             # 提取论文分类信息 - 在subjects部分
             subjects_text = paper_dd.css(".list-subjects .primary-subject::text").get()
             if not subjects_text:
                 # 如果找不到主分类，尝试其他方式获取分类
-                subjects_text = paper_dd.css(".list-subjects::text").get()
+                subjects_text = " ".join(paper_dd.css(".list-subjects::text").getall())
             
             if subjects_text:
                 # 解析分类信息，通常格式如 "Computer Vision and Pattern Recognition (cs.CV)"
@@ -64,6 +93,10 @@ class ArxivSpider(scrapy.Spider):
                     yield {
                         "id": arxiv_id,
                         "categories": list(paper_categories),  # 添加分类信息用于调试
+                        "authors": authors,
+                        "title": title,
+                        "comment": comment,
+                        "summary": summary,
                     }
                     self.logger.info(f"Found paper {arxiv_id} with categories {paper_categories}")
                 else:
@@ -74,4 +107,8 @@ class ArxivSpider(scrapy.Spider):
                 yield {
                     "id": arxiv_id,
                     "categories": [],
+                    "authors": authors,
+                    "title": title,
+                    "comment": comment,
+                    "summary": summary,
                 }
