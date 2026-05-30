@@ -55,7 +55,7 @@ interests:
   authors: []
 
 x_trends:
-  enabled: true
+  enabled: false
   woeids:
     - 1
     - 23424977
