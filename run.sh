@@ -105,11 +105,24 @@ esac
 
 cd ..
 
-# 第三步：AI处理 / Step 3: AI processing
+# 第三步：外部趋势抓取 / Step 3: External trend collection
+echo "步骤3：抓取X趋势... / Step 3: Fetching X trends..."
+python sources/x_trends.py --date ${today}
+
+# 第四步：二次评分筛选 / Step 4: Secondary scoring and filtering
+echo "步骤4：论文二次评分筛选... / Step 4: Scoring and filtering papers..."
+python filters/score_papers.py --data data/${today}.jsonl
+
+if [ ! -f "data/${today}_selected.jsonl" ]; then
+    echo "筛选失败，未生成selected数据文件 / Filtering failed, no selected data file generated"
+    exit 1
+fi
+
+# 第五步：AI处理 / Step 5: AI processing
 if [ "$PARTIAL_MODE" = "false" ]; then
-    echo "步骤3：AI增强处理... / Step 3: AI enhancement processing..."
+    echo "步骤5：AI增强处理... / Step 5: AI enhancement processing..."
     cd ai
-    python enhance.py --data ../data/${today}.jsonl
+    python enhance.py --data ../data/${today}_selected.jsonl
     
     if [ $? -ne 0 ]; then
         echo "❌ AI处理失败 / AI processing failed"
@@ -121,13 +134,13 @@ else
     echo "⏭️  跳过AI处理（部分模式）/ Skipping AI processing (partial mode)"
 fi
 
-# 第四步：转换为Markdown / Step 4: Convert to Markdown
-echo "步骤4：转换为Markdown... / Step 4: Converting to Markdown..."
+# 第六步：转换为Markdown / Step 6: Convert to Markdown
+echo "步骤6：转换为Markdown... / Step 6: Converting to Markdown..."
 cd to_md
 
-if [ "$PARTIAL_MODE" = "false" ] && [ -f "../data/${today}_AI_enhanced_${LANGUAGE}.jsonl" ]; then
+if [ "$PARTIAL_MODE" = "false" ] && [ -f "../data/${today}_selected_AI_enhanced_${LANGUAGE}.jsonl" ]; then
     echo "📄 使用AI增强后的数据进行转换... / Using AI enhanced data for conversion..."
-    python convert.py --data ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl
+    python convert.py --data ../data/${today}_selected_AI_enhanced_${LANGUAGE}.jsonl
     
     if [ $? -ne 0 ]; then
         echo "❌ Markdown转换失败 / Markdown conversion failed"
@@ -140,15 +153,15 @@ else
         echo "⏭️  跳过Markdown转换（部分模式，需要AI增强数据）/ Skipping Markdown conversion (partial mode, requires AI enhanced data)"
     else
         echo "❌ 错误：未找到AI增强文件 / Error: AI enhanced file not found"
-        echo "AI文件: ../data/${today}_AI_enhanced_${LANGUAGE}.jsonl"
+        echo "AI文件: ../data/${today}_selected_AI_enhanced_${LANGUAGE}.jsonl"
         exit 1
     fi
 fi
 
 cd ..
 
-# 第五步：更新文件列表 / Step 5: Update file list
-echo "步骤5：更新文件列表... / Step 5: Updating file list..."
+# 第七步：更新文件列表 / Step 7: Update file list
+echo "步骤7：更新文件列表... / Step 7: Updating file list..."
 ls data/*.jsonl | sed 's|data/||' > assets/file-list.txt
 echo "✅ 文件列表更新完成 / File list updated"
 
@@ -159,6 +172,8 @@ if [ "$PARTIAL_MODE" = "false" ]; then
     echo "🎉 完整流程已完成 / Complete workflow finished:"
     echo "   ✅ 数据爬取 / Data crawling"
     echo "   ✅ 去重检查 / Smart duplicate check"
+    echo "   ✅ X趋势抓取 / X trend collection"
+    echo "   ✅ 二次评分筛选 / Secondary scoring and filtering"
     echo "   ✅ AI增强处理 / AI enhancement"
     echo "   ✅ Markdown转换 / Markdown conversion"
     echo "   ✅ 文件列表更新 / File list update"
@@ -166,6 +181,8 @@ else
     echo "🔄 部分流程已完成 / Partial workflow finished:"
     echo "   ✅ 数据爬取 / Data crawling"
     echo "   ✅ 去重检查 / Smart duplicate check"
+    echo "   ✅ X趋势抓取 / X trend collection"
+    echo "   ✅ 二次评分筛选 / Secondary scoring and filtering"
     echo "   ⏭️  跳过AI增强和Markdown转换 / Skipped AI enhancement and Markdown conversion"
     echo "   ✅ 文件列表更新 / File list update"
     echo ""

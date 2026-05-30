@@ -1,0 +1,102 @@
+filter:
+  mode: soft
+  max_selected: 40
+  min_per_category: 3
+  final_threshold: 50
+
+score_weights:
+  interest: 0.7
+  trend: 0.2
+  utility: 0.1
+
+interests:
+  categories:
+    - cs.CL
+    - cs.AI
+    - cs.IR
+    - stat.ML
+    - cs.LG
+  keywords:
+    - term: data minimization
+      weight: 5
+      aliases:
+        - data-minimization
+        - data efficiency
+        - training data reduction
+        - less data
+        - minimal data
+    - term: recommender systems
+      weight: 5
+      aliases:
+        - recommender system
+        - recommendation systems
+        - recommendation system
+        - recsys
+        - RecSys
+    - term: collaborative filtering
+      weight: 4
+      aliases:
+        - user-item interaction
+        - implicit feedback
+    - term: sequential recommendation
+      weight: 4
+      aliases:
+        - next item recommendation
+        - session-based recommendation
+    - term: retrieval
+      weight: 3
+      aliases:
+        - information retrieval
+        - ranking
+        - learning to rank
+  negative_keywords:
+    - medical image segmentation
+    - remote sensing
+  authors: []
+
+x_trends:
+  enabled: true
+  woeids:
+    - 1
+    - 23424977
+  lookback_days: 7
+  tech_terms:
+    - AI
+    - LLM
+    - model
+    - benchmark
+    - dataset
+    - recommender
+    - recommendation
+    - recsys
+    - retrieval
+    - ranking
+    - privacy
+    - data minimization
+    - robotics
+    - OpenAI
+    - Anthropic
+    - DeepMind
+    - NVIDIA
+    - arXiv
+    - NeurIPS
+    - ICML
+    - ICLR
+    - CVPR
+    - ACL
+    - SIGGRAPH
+    - Gemini
+    - Claude
+    - GPT
+    - Llama
+    - diffusion
+    - transformer
+  watchlist:
+    - data minimization
+    - data efficiency
+    - recommender systems
+    - recsys
+    - collaborative filtering
+    - sequential recommendation
+    - learning to rank
+    - information retrieval

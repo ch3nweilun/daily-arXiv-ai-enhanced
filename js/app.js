@@ -695,6 +695,18 @@ function selectLanguageForDate(date, preferredLanguage = null) {
   return availableLanguages.includes('Chinese') ? 'Chinese' : availableLanguages[0];
 }
 
+async function fetchPaperDataFile(date, language) {
+  const preferredUrl = DATA_CONFIG.getDataUrl(`data/${date}_selected_AI_enhanced_${language}.jsonl`);
+  let response = await fetch(preferredUrl);
+  if (response.ok) {
+    return response;
+  }
+
+  const legacyUrl = DATA_CONFIG.getDataUrl(`data/${date}_AI_enhanced_${language}.jsonl`);
+  response = await fetch(legacyUrl);
+  return response;
+}
+
 async function fetchAvailableDates() {
   try {
     // 从 data 分支获取文件列表
@@ -707,7 +719,7 @@ async function fetchAvailableDates() {
     const text = await response.text();
     const files = text.trim().split('\n');
 
-    const dateRegex = /(\d{4}-\d{2}-\d{2})_AI_enhanced_(English|Chinese)\.jsonl/;
+    const dateRegex = /(\d{4}-\d{2}-\d{2})(?:_selected)?_AI_enhanced_(English|Chinese)\.jsonl/;
     const dateLanguageMap = new Map(); // Store date -> available languages
     const dates = [];
     
@@ -721,7 +733,9 @@ async function fetchAvailableDates() {
           dateLanguageMap.set(date, []);
           dates.push(date);
         }
-        dateLanguageMap.get(date).push(language);
+        if (!dateLanguageMap.get(date).includes(language)) {
+          dateLanguageMap.get(date).push(language);
+        }
       }
     });
     
@@ -828,8 +842,7 @@ async function loadPapersByDate(date) {
   try {
     const selectedLanguage = selectLanguageForDate(date);
     // 从 data 分支获取数据文件
-    const dataUrl = DATA_CONFIG.getDataUrl(`data/${date}_AI_enhanced_${selectedLanguage}.jsonl`);
-    const response = await fetch(dataUrl);
+    const response = await fetchPaperDataFile(date, selectedLanguage);
     // 如果文件不存在（例如返回 404），在论文展示区域提示没有论文
     if (!response.ok) {
       if (response.status === 404) {
@@ -1708,8 +1721,7 @@ async function loadPapersByDateRange(startDate, endDate) {
     for (const date of validDatesInRange) {
       const selectedLanguage = selectLanguageForDate(date);
       // 从 data 分支获取数据文件
-      const dataUrl = DATA_CONFIG.getDataUrl(`data/${date}_AI_enhanced_${selectedLanguage}.jsonl`);
-      const response = await fetch(dataUrl);
+      const response = await fetchPaperDataFile(date, selectedLanguage);
       const text = await response.text();
       const dataPapers = parseJsonlData(text, date);
       
