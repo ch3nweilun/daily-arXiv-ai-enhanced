@@ -48,6 +48,19 @@ def fetch_woeid_trends(token: str, woeids: list[int]) -> list[dict[str, Any]]:
     return trends
 
 
+def try_fetch_woeid_trends(token: str, woeids: list[int]) -> tuple[list[dict[str, Any]], list[str]]:
+    trends: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for woeid in woeids:
+        try:
+            trends.extend(fetch_woeid_trends(token, [woeid]))
+        except requests.HTTPError as exc:
+            errors.append(f"woeid:{woeid}: {exc}")
+        except Exception as exc:
+            errors.append(f"woeid:{woeid}: {exc}")
+    return trends, errors
+
+
 def fetch_recent_count(token: str, query: str) -> dict[str, Any]:
     payload = request_json(
         f"{API_BASE}/tweets/counts/recent",
@@ -60,6 +73,19 @@ def fetch_recent_count(token: str, query: str) -> dict[str, Any]:
         "total_count": total,
         "buckets": payload.get("data", []),
     }
+
+
+def try_fetch_recent_counts(token: str, queries: list[str]) -> tuple[list[dict[str, Any]], list[str]]:
+    counts: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for query in queries:
+        try:
+            counts.append(fetch_recent_count(token, query))
+        except requests.HTTPError as exc:
+            errors.append(f"query:{query}: {exc}")
+        except Exception as exc:
+            errors.append(f"query:{query}: {exc}")
+    return counts, errors
 
 
 def contains_any(text: str, terms: list[str]) -> bool:
@@ -105,22 +131,22 @@ def main() -> None:
             result = build_empty_result(args.date, "X_BEARER_TOKEN is not set")
         else:
             try:
-                raw_trends = [
-                    normalize_trend(item)
-                    for item in fetch_woeid_trends(token, trend_config.get("woeids", [1]))
-                ]
+                raw_items, trend_errors = try_fetch_woeid_trends(token, trend_config.get("woeids", [1]))
+                raw_trends = [normalize_trend(item) for item in raw_items]
                 tech_terms = trend_config.get("tech_terms", [])
                 tech_trends = [
                     item for item in raw_trends if contains_any(item.get("name", ""), tech_terms)
                 ]
-                watchlist_counts = [
-                    fetch_recent_count(token, query)
-                    for query in trend_config.get("watchlist", [])
-                ]
+                watchlist_counts, count_errors = try_fetch_recent_counts(
+                    token,
+                    trend_config.get("watchlist", []),
+                )
+                errors = trend_errors + count_errors
                 result = {
                     "date": args.date,
                     "source": "x",
-                    "status": "ok",
+                    "status": "partial" if errors else "ok",
+                    "errors": errors,
                     "raw_trends": raw_trends,
                     "tech_trends": tech_trends,
                     "watchlist_counts": watchlist_counts,

@@ -2,6 +2,7 @@ import os
 import json
 import sys
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
 from queue import Queue
@@ -32,31 +33,44 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", type=str, required=True, help="jsonline data file")
     parser.add_argument("--max_workers", type=int, default=1, help="Maximum number of parallel workers")
+    parser.add_argument("--max_retries", type=int, default=3, help="Maximum retries for transient API failures")
     return parser.parse_args()
 
-def process_single_item(chain, item: Dict, language: str) -> Dict:
+def process_single_item(chain, item: Dict, language: str, max_retries: int) -> Dict:
     def is_sensitive(content: str) -> bool:
         """
         调用 spam.dw-dengwei.workers.dev 接口检测内容是否包含敏感词。
         返回 True 表示触发敏感词，False 表示未触发。
         """
-        try:
-            resp = requests.post(
-                "https://spam.dw-dengwei.workers.dev",
-                json={"text": content},
-                timeout=5
-            )
-            if resp.status_code == 200:
-                result = resp.json()
-                # 约定接口返回 {"sensitive": true/false, ...}
-                return result.get("sensitive", True)
-            else:
-                # 如果接口异常，默认不触发敏感词
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post(
+                    "https://spam.dw-dengwei.workers.dev",
+                    json={"text": content},
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    result = resp.json()
+                    # 约定接口返回 {"sensitive": true/false, ...}
+                    return result.get("sensitive", True)
+                if resp.status_code in {429, 500, 502, 503, 504}:
+                    wait_seconds = min(30, 2 ** attempt)
+                    print(
+                        f"Sensitive check transient failure status {resp.status_code}, "
+                        f"retrying in {wait_seconds}s",
+                        file=sys.stderr,
+                    )
+                    time.sleep(wait_seconds)
+                    continue
                 print(f"Sensitive check failed with status {resp.status_code}", file=sys.stderr)
                 return True
-        except Exception as e:
-            print(f"Sensitive check error: {e}", file=sys.stderr)
-            return True
+            except Exception as e:
+                wait_seconds = min(30, 2 ** attempt)
+                print(f"Sensitive check error: {e}, retrying in {wait_seconds}s", file=sys.stderr)
+                time.sleep(wait_seconds)
+
+        print("Sensitive check unavailable after retries; keeping item", file=sys.stderr)
+        return False
 
     def check_github_code(content: str) -> Dict:
         """提取并验证 GitHub 链接"""
@@ -125,10 +139,27 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
     }
     
     try:
-        response: Structure = chain.invoke({
-            "language": language,
-            "content": item['summary']
-        })
+        response = None
+        for attempt in range(max_retries):
+            try:
+                response = chain.invoke({
+                    "language": language,
+                    "content": item['summary']
+                })
+                break
+            except langchain_core.exceptions.OutputParserException:
+                raise
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                wait_seconds = min(60, 2 ** attempt)
+                print(
+                    f"LLM call failed for {item.get('id', 'unknown')}: {e}; "
+                    f"retrying in {wait_seconds}s",
+                    file=sys.stderr,
+                )
+                time.sleep(wait_seconds)
+
         item['AI'] = response.model_dump()
     except langchain_core.exceptions.OutputParserException as e:
         # 尝试从错误信息中提取 JSON 字符串并修复
@@ -165,7 +196,7 @@ def process_single_item(chain, item: Dict, language: str) -> Dict:
             return None
     return item
 
-def process_all_items(data: List[Dict], model_name: str, language: str, max_workers: int) -> List[Dict]:
+def process_all_items(data: List[Dict], model_name: str, language: str, max_workers: int, max_retries: int) -> List[Dict]:
     """并行处理所有数据项"""
     llm = ChatOpenAI(model=model_name).with_structured_output(Structure, method="function_calling")
     print('Connect to:', model_name, file=sys.stderr)
@@ -182,7 +213,7 @@ def process_all_items(data: List[Dict], model_name: str, language: str, max_work
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         # 提交所有任务
         future_to_idx = {
-            executor.submit(process_single_item, chain, item, language): idx
+            executor.submit(process_single_item, chain, item, language, max_retries): idx
             for idx, item in enumerate(data)
         }
         
@@ -243,7 +274,8 @@ def main():
         data,
         model_name,
         language,
-        args.max_workers
+        args.max_workers,
+        args.max_retries
     )
     
     # 保存结果
