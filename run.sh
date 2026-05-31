@@ -129,6 +129,15 @@ if [ "$PARTIAL_MODE" = "false" ]; then
         exit 1
     fi
     echo "✅ AI增强处理完成 / AI enhancement processing completed"
+
+    echo "步骤5.5：Top论文全文增强... / Step 5.5: Fulltext enhancement for top papers..."
+    python fulltext_enhance.py --data ../data/${today}_selected_AI_enhanced_${LANGUAGE}.jsonl --top_n 10
+
+    if [ $? -ne 0 ]; then
+        echo "❌ 全文增强失败 / Fulltext enhancement failed"
+        exit 1
+    fi
+    echo "✅ Top论文全文增强完成 / Fulltext enhancement completed"
     cd ..
 else
     echo "⏭️  跳过AI处理（部分模式）/ Skipping AI processing (partial mode)"

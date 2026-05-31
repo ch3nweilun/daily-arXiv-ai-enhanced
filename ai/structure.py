@@ -7,3 +7,11 @@ class Structure(BaseModel):
     method: str = Field(description="method of this paper")
     result: str = Field(description="result of this paper")
     conclusion: str = Field(description="conclusion of this paper")
+
+
+class FullTextStructure(BaseModel):
+    summary: str = Field(description="full-paper summary")
+    key_contributions: str = Field(description="key contributions of this paper")
+    method_details: str = Field(description="important method details")
+    limitations: str = Field(description="limitations or caveats")
+    why_it_matters: str = Field(description="why this paper matters")

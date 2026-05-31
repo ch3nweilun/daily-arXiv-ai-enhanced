@@ -951,7 +951,9 @@ function parseJsonlData(jsonlText, date) {
         scores: scores,
         finalScore: finalScore,
         matchedReasons: Array.isArray(paper.matched_reasons) ? paper.matched_reasons : [],
-        filterDecision: paper.filter_decision || ''
+        filterDecision: paper.filter_decision || '',
+        fulltextAI: paper.fulltext_AI || null,
+        fulltextStatus: paper.fulltext_status || ''
       });
     } catch (error) {
       console.error('解析JSON行失败:', error, line);
@@ -1546,6 +1548,16 @@ function showPaperDetails(paper, paperIndex) {
       ` : ''}
     </div>
   ` : '';
+  const fulltextDetails = paper.fulltextAI ? `
+    <h3>Full Paper Analysis</h3>
+    <div class="fulltext-analysis">
+      ${paper.fulltextAI.summary ? `<div class="paper-section"><h4>Summary</h4><p>${paper.fulltextAI.summary}</p></div>` : ''}
+      ${paper.fulltextAI.key_contributions ? `<div class="paper-section"><h4>Key Contributions</h4><p>${paper.fulltextAI.key_contributions}</p></div>` : ''}
+      ${paper.fulltextAI.method_details ? `<div class="paper-section"><h4>Method Details</h4><p>${paper.fulltextAI.method_details}</p></div>` : ''}
+      ${paper.fulltextAI.limitations ? `<div class="paper-section"><h4>Limitations</h4><p>${paper.fulltextAI.limitations}</p></div>` : ''}
+      ${paper.fulltextAI.why_it_matters ? `<div class="paper-section"><h4>Why It Matters</h4><p>${paper.fulltextAI.why_it_matters}</p></div>` : ''}
+    </div>
+  ` : '';
   
   const modalContent = `
     <div class="paper-details ${matchedPaperClass}">
@@ -1557,6 +1569,7 @@ function showPaperDetails(paper, paperIndex) {
       
       <h3>TL;DR</h3>
       <p>${highlightedSummary}</p>
+      ${fulltextDetails}
       
       <div class="paper-sections">
         ${paper.motivation ? `<div class="paper-section"><h4>Motivation</h4><p>${highlightedMotivation}</p></div>` : ''}

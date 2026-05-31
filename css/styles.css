@@ -1935,6 +1935,14 @@ footer {
   padding: 3px 7px;
 }
 
+.fulltext-analysis {
+  margin: 14px 0 22px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  background-color: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+}
+
 .match-indicator {
   position: absolute;
   top: -10px;

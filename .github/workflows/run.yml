@@ -156,6 +156,22 @@ jobs:
         fi
         echo "AI增强处理完成 / AI enhancement processing completed"
 
+    - name: Fulltext enhancement for top papers
+      if: steps.dedup_check.outputs.has_new_content == 'true'
+      run: |
+        source .venv/bin/activate
+        today=${{ steps.crawl_step.outputs.crawl_date }}
+        echo "开始Top论文全文增强... / Starting fulltext enhancement for top papers..."
+
+        cd ai
+        export OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        export OPENAI_BASE_URL=${{ secrets.OPENAI_BASE_URL }}
+        export LANGUAGE="${{ vars.LANGUAGE }}"
+        export MODEL_NAME="${{ vars.MODEL_NAME }}"
+
+        python fulltext_enhance.py --data ../data/${today}_selected_AI_enhanced_${LANGUAGE}.jsonl --top_n 10
+        echo "Top论文全文增强完成 / Fulltext enhancement completed"
+
     - name: Convert to Markdown
       if: steps.dedup_check.outputs.has_new_content == 'true'
       run: |
