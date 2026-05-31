@@ -929,6 +929,8 @@ function parseJsonlData(jsonlText, date) {
       }
       
       const summary = paper.AI && paper.AI.tldr ? paper.AI.tldr : paper.summary;
+      const scores = paper.scores || {};
+      const finalScore = Number.isFinite(Number(scores.final)) ? Number(scores.final) : 0;
       
       result[primaryCategory].push({
         title: paper.title,
@@ -945,7 +947,11 @@ function parseJsonlData(jsonlText, date) {
         conclusion: paper.AI && paper.AI.conclusion ? paper.AI.conclusion : '',
         code_url: paper.code_url || '',
         code_stars: paper.code_stars || 0,
-        code_last_update: paper.code_last_update || ''
+        code_last_update: paper.code_last_update || '',
+        scores: scores,
+        finalScore: finalScore,
+        matchedReasons: Array.isArray(paper.matched_reasons) ? paper.matched_reasons : [],
+        filterDecision: paper.filter_decision || ''
       });
     } catch (error) {
       console.error('解析JSON行失败:', error, line);
@@ -1127,6 +1133,13 @@ function renderPapers() {
   // 创建匹配论文的集合
   let filteredPapers = [...papers];
 
+  const sortByScore = (a, b) => {
+    const scoreDiff = (Number(b.finalScore) || 0) - (Number(a.finalScore) || 0);
+    if (scoreDiff !== 0) return scoreDiff;
+    return (a.title || '').localeCompare(b.title || '');
+  };
+  filteredPapers.sort(sortByScore);
+
   // 重置所有论文的匹配状态，避免上次渲染的残留
   filteredPapers.forEach(p => {
     p.isMatched = false;
@@ -1165,7 +1178,7 @@ function renderPapers() {
       const bm = hayB.includes(q);
       if (am && !bm) return -1;
       if (!am && bm) return 1;
-      return 0;
+      return sortByScore(a, b);
     });
 
     // 标记匹配项，用于卡片样式与提示
@@ -1222,7 +1235,7 @@ function renderPapers() {
         
         if (aMatches && !bMatches) return -1;
         if (!aMatches && bMatches) return 1;
-        return 0;
+        return sortByScore(a, b);
       });
       
       // 标记匹配的论文
@@ -1301,7 +1314,7 @@ function renderPapers() {
       
       if (aMatches && !bMatches) return -1;
       if (!aMatches && bMatches) return 1;
-      return 0;
+      return sortByScore(a, b);
     });
     
     // 标记匹配的论文
@@ -1394,6 +1407,12 @@ function renderPapers() {
     
     // 格式化作者列表（应用截断规则和高亮）
     const formattedAuthors = formatAuthorsForCard(paper.authors, authorTerms);
+    const scoreHtml = paper.scores ? `
+      <div class="paper-score-row" title="Interest ${paper.scores.interest ?? 0} · Trend ${paper.scores.trend ?? 0} · Utility ${paper.scores.utility ?? 0}">
+        <span class="paper-score">Score ${Number(paper.finalScore || 0).toFixed(1)}</span>
+        ${paper.matchedReasons && paper.matchedReasons.length > 0 ? `<span class="paper-score-reason">${paper.matchedReasons[0]}</span>` : ''}
+      </div>
+    ` : '';
     
     // 构建 GitHub 按钮 HTML
     // let githubHtml = '';
@@ -1421,6 +1440,7 @@ function renderPapers() {
         <div class="paper-card-categories">
           ${categoryTags}
         </div>
+        ${scoreHtml}
       </div>
       <div class="paper-card-body">
         <p class="paper-card-summary">${highlightedSummary}</p>
@@ -1511,12 +1531,28 @@ function showPaperDetails(paper, paperIndex) {
   
   // 添加匹配标记
   const matchedPaperClass = paper.isMatched ? 'matched-paper-details' : '';
+  const scoreDetails = paper.scores ? `
+    <div class="score-details">
+      <div class="score-details-grid">
+        <span><strong>Final</strong> ${Number(paper.finalScore || 0).toFixed(1)}</span>
+        <span><strong>Interest</strong> ${paper.scores.interest ?? 0}</span>
+        <span><strong>Trend</strong> ${paper.scores.trend ?? 0}</span>
+        <span><strong>Utility</strong> ${paper.scores.utility ?? 0}</span>
+      </div>
+      ${paper.matchedReasons && paper.matchedReasons.length > 0 ? `
+        <div class="score-reasons">
+          ${paper.matchedReasons.map(reason => `<span>${reason}</span>`).join('')}
+        </div>
+      ` : ''}
+    </div>
+  ` : '';
   
   const modalContent = `
     <div class="paper-details ${matchedPaperClass}">
       <p><strong>Authors: </strong>${highlightedAuthors}</p>
       <p><strong>Categories: </strong>${categoryDisplay}</p>
       <p><strong>Date: </strong>${formatDate(paper.date)}</p>
+      ${scoreDetails}
       
       
       <h3>TL;DR</h3>
