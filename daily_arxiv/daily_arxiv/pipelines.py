@@ -6,6 +6,7 @@
 
 # useful for handling different item types with a single interface
 import arxiv
+import os
 import sys
 import time
 
@@ -13,10 +14,11 @@ import time
 class DailyArxivPipeline:
     def __init__(self):
         self.page_size = 100
+        self.enable_api_fallback = os.environ.get("ENABLE_ARXIV_API_FALLBACK", "false").lower() == "true"
         self.client = arxiv.Client(
             page_size=self.page_size,
             delay_seconds=6,
-            num_retries=5,
+            num_retries=1,
         )
 
     def fetch_paper(self, paper_id):
@@ -46,6 +48,22 @@ class DailyArxivPipeline:
             item.get("summary"),
         ])
         if has_required_metadata:
+            return item
+
+        if not self.enable_api_fallback:
+            missing_fields = [
+                field for field in ("authors", "title", "categories", "summary")
+                if not item.get(field)
+            ]
+            print(
+                f"arXiv API fallback disabled for {item['id']}; missing fields: {missing_fields}",
+                file=sys.stderr,
+            )
+            item["authors"] = item.get("authors") or []
+            item["title"] = item.get("title") or item["id"]
+            item["categories"] = item.get("categories") or []
+            item["comment"] = item.get("comment")
+            item["summary"] = item.get("summary") or ""
             return item
 
         paper = self.fetch_paper(item["id"])

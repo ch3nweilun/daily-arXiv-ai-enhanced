@@ -23,6 +23,19 @@ def extract_text_after_label(selector, label):
     return clean_text(" ".join(text_parts))
 
 
+def extract_abstract(selector):
+    abstract = extract_text_after_label(selector, "abstract")
+    if abstract:
+        return abstract
+
+    text_parts = []
+    for text in selector.css("p.mathjax::text").getall():
+        cleaned = clean_text(text)
+        if cleaned:
+            text_parts.append(cleaned)
+    return clean_text(" ".join(text_parts))
+
+
 class ArxivSpider(scrapy.Spider):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -73,7 +86,7 @@ class ArxivSpider(scrapy.Spider):
                 cleaned_author = clean_text(author)
                 if cleaned_author:
                     authors.append(cleaned_author)
-            summary = extract_text_after_label(paper_dd, "abstract")
+            summary = extract_abstract(paper_dd)
             comment = extract_text_after_label(paper_dd, "comments")
             
             # 提取论文分类信息 - 在subjects部分
