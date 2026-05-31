@@ -5,8 +5,6 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict
-from queue import Queue
-from threading import Lock
 # INSERT_YOUR_CODE
 import requests
 
@@ -27,6 +25,7 @@ if os.path.exists('.env'):
     dotenv.load_dotenv()
 template = open("template.txt", "r").read()
 system = open("system.txt", "r").read()
+ENABLE_SENSITIVE_CHECK = os.environ.get("ENABLE_SENSITIVE_CHECK", "false").lower() == "true"
 
 def parse_args():
     """解析命令行参数"""
@@ -42,6 +41,9 @@ def process_single_item(chain, item: Dict, language: str, max_retries: int) -> D
         调用 spam.dw-dengwei.workers.dev 接口检测内容是否包含敏感词。
         返回 True 表示触发敏感词，False 表示未触发。
         """
+        if not ENABLE_SENSITIVE_CHECK:
+            return False
+
         for attempt in range(max_retries):
             try:
                 resp = requests.post(
@@ -54,20 +56,21 @@ def process_single_item(chain, item: Dict, language: str, max_retries: int) -> D
                     # 约定接口返回 {"sensitive": true/false, ...}
                     return result.get("sensitive", True)
                 if resp.status_code in {429, 500, 502, 503, 504}:
-                    wait_seconds = min(30, 2 ** attempt)
+                    wait_seconds = 1
                     print(
                         f"Sensitive check transient failure status {resp.status_code}, "
-                        f"retrying in {wait_seconds}s",
+                        f"retrying once in {wait_seconds}s",
                         file=sys.stderr,
                     )
                     time.sleep(wait_seconds)
-                    continue
+                    break
                 print(f"Sensitive check failed with status {resp.status_code}", file=sys.stderr)
                 return True
             except Exception as e:
-                wait_seconds = min(30, 2 ** attempt)
-                print(f"Sensitive check error: {e}, retrying in {wait_seconds}s", file=sys.stderr)
+                wait_seconds = 1
+                print(f"Sensitive check error: {e}, retrying once in {wait_seconds}s", file=sys.stderr)
                 time.sleep(wait_seconds)
+                break
 
         print("Sensitive check unavailable after retries; keeping item", file=sys.stderr)
         return False
@@ -150,6 +153,9 @@ def process_single_item(chain, item: Dict, language: str, max_retries: int) -> D
             except langchain_core.exceptions.OutputParserException:
                 raise
             except Exception as e:
+                error_text = str(e)
+                if "Error code: 400" in error_text or "invalid_request_error" in error_text:
+                    raise
                 if attempt == max_retries - 1:
                     raise
                 wait_seconds = min(60, 2 ** attempt)
@@ -198,7 +204,7 @@ def process_single_item(chain, item: Dict, language: str, max_retries: int) -> D
 
 def process_all_items(data: List[Dict], model_name: str, language: str, max_workers: int, max_retries: int) -> List[Dict]:
     """并行处理所有数据项"""
-    llm = ChatOpenAI(model=model_name).with_structured_output(Structure, method="function_calling")
+    llm = ChatOpenAI(model=model_name).with_structured_output(Structure, method="json_mode")
     print('Connect to:', model_name, file=sys.stderr)
     
     prompt_template = ChatPromptTemplate.from_messages([
