@@ -8,13 +8,12 @@
 import arxiv
 import os
 import sys
-import time
 
 
 class DailyArxivPipeline:
     def __init__(self):
         self.page_size = 100
-        self.enable_api_fallback = os.environ.get("ENABLE_ARXIV_API_FALLBACK", "false").lower() == "true"
+        self.enable_api_fallback = os.environ.get("ENABLE_ARXIV_API_FALLBACK", "true").lower() == "true"
         self.client = arxiv.Client(
             page_size=self.page_size,
             delay_seconds=6,
@@ -23,19 +22,11 @@ class DailyArxivPipeline:
 
     def fetch_paper(self, paper_id):
         search = arxiv.Search(id_list=[paper_id])
-        for attempt in range(5):
-            try:
-                return next(self.client.results(search))
-            except Exception as exc:
-                wait_seconds = min(60, 2 ** attempt * 5)
-                print(
-                    f"arXiv API fallback failed for {paper_id}: {exc}; "
-                    f"retrying in {wait_seconds}s",
-                    file=sys.stderr,
-                )
-                time.sleep(wait_seconds)
-        print(f"arXiv API fallback unavailable for {paper_id}; keeping parsed metadata", file=sys.stderr)
-        return None
+        try:
+            return next(self.client.results(search))
+        except Exception as exc:
+            print(f"arXiv API fallback failed for {paper_id}: {exc}; keeping parsed metadata", file=sys.stderr)
+            return None
 
     def process_item(self, item: dict, spider):
         item["pdf"] = f"https://arxiv.org/pdf/{item['id']}"
