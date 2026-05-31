@@ -1,4 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
+from typing import Any
+import json
 import re
 
 class Structure(BaseModel):
@@ -15,3 +17,14 @@ class FullTextStructure(BaseModel):
     method_details: str = Field(description="important method details")
     limitations: str = Field(description="limitations or caveats")
     why_it_matters: str = Field(description="why this paper matters")
+
+    @field_validator("*", mode="before")
+    @classmethod
+    def stringify_fields(cls, value: Any) -> str:
+        if isinstance(value, list):
+            return "\n".join(str(item) for item in value)
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False)
+        if value is None:
+            return ""
+        return str(value)
