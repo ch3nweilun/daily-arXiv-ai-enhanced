@@ -18,3 +18,7 @@
 2026-06-03_scored.jsonl
 2026-06-03_selected.jsonl
 2026-06-03_selected_AI_enhanced_Chinese.jsonl
+2026-06-04.jsonl
+2026-06-04_scored.jsonl
+2026-06-04_selected.jsonl
+2026-06-04_selected_AI_enhanced_Chinese.jsonl
