@@ -239,3 +239,7 @@
 2026-08-26_scored.jsonl
 2026-08-26_selected.jsonl
 2026-08-26_selected_AI_enhanced_Chinese.jsonl
+2026-08-27.jsonl
+2026-08-27_scored.jsonl
+2026-08-27_selected.jsonl
+2026-08-27_selected_AI_enhanced_Chinese.jsonl
