@@ -351,3 +351,7 @@
 2026-10-06_scored.jsonl
 2026-10-06_selected.jsonl
 2026-10-06_selected_AI_enhanced_Chinese.jsonl
+2026-10-07.jsonl
+2026-10-07_scored.jsonl
+2026-10-07_selected.jsonl
+2026-10-07_selected_AI_enhanced_Chinese.jsonl
